@@ -336,6 +336,9 @@ export default function App() {
   const [passwordError, setPasswordError] = useState(null)
   const [isPasswordVisible, setIsPasswordVisible] = useState(false)
   const [showInlinePasswordInput, setShowInlinePasswordInput] = useState(false)
+  // Pre-upload password: typed BEFORE selecting file (avoids the failed-upload→modal loop)
+  const [preUploadPassword, setPreUploadPassword] = useState('')
+  const [preUploadPasswordVisible, setPreUploadPasswordVisible] = useState(false)
 
   // Telemetry Progression
   const [analyzingStep, setAnalyzingStep] = useState(1)
@@ -477,7 +480,8 @@ export default function App() {
   const performAnalysis = async (file, useSample = false, pwd = null) => {
     setErrorMessage(null)
     setPasswordError(null)
-    const activePassword = pwd !== null ? pwd : statementPassword
+    // pwd arg takes priority; then modal password; then pre-upload password typed before file select
+    const activePassword = pwd !== null ? pwd : (statementPassword || preUploadPassword)
     const cleanupAnimation = startAnalyzingAnimation()
     const startTime = Date.now()
 
@@ -486,8 +490,15 @@ export default function App() {
 
       if (!useSample && file) {
         let uploadPayload = null
-        const fileBuffer = await file.arrayBuffer()
-        const cryptoResult = await encryptStatementBuffer(fileBuffer)
+
+        // Always try in-browser AES-256-GCM encryption first
+        let cryptoResult = { success: false }
+        try {
+          const fileBuffer = await file.arrayBuffer()
+          cryptoResult = await encryptStatementBuffer(fileBuffer)
+        } catch (_) {
+          // encryption unavailable — fall through to plain upload
+        }
 
         if (cryptoResult.success) {
           setEncryptionStatus('256-bit Web Crypto encryption active')
@@ -500,6 +511,8 @@ export default function App() {
           if (activePassword) formData.append('password', activePassword)
           uploadPayload = formData
         } else {
+          // Fallback: plain multipart upload
+          setEncryptionStatus('TLS-secured upload')
           const formData = new FormData()
           formData.append('file', file)
           if (activePassword) formData.append('password', activePassword)
@@ -516,7 +529,9 @@ export default function App() {
           const errText = await response.text()
           if (errText.includes('PASSWORD_REQUIRED') || errText.includes('PASSWORD_INCORRECT')) {
             const isIncorrect = errText.includes('PASSWORD_INCORRECT')
+            // Keep the file in state so the modal can re-submit without re-picking
             setPendingFile(file)
+            setStatementPassword('')
             setPasswordError(
               isIncorrect
                 ? 'Incorrect password. Most banks use DOB (DDMMYYYY) or PAN / Last 4 digits of debit card.'
@@ -527,14 +542,26 @@ export default function App() {
             switchState('upload')
             return
           }
-          throw new Error(`Server returned ${response.status}: ${errText}`)
+          // Surface readable error, strip JSON noise
+          let friendlyErr = `Upload failed (${response.status}).`
+          try {
+            const parsed = JSON.parse(errText)
+            if (parsed?.detail) friendlyErr = parsed.detail
+          } catch (_) {
+            if (errText && errText.length < 300) friendlyErr = errText
+          }
+          throw new Error(friendlyErr)
         }
 
         data = await response.json()
       } else {
+        // Sample mode: hit /analyze with use_sample flag via form
         const endpoint = `${API_BASE_URL}/analyze`
+        const fd = new FormData()
+        fd.append('use_sample', 'true')
         const response = await fetch(endpoint, {
           method: 'POST',
+          body: fd,
         }).catch(() => null)
 
         if (response && response.ok) {
@@ -552,12 +579,15 @@ export default function App() {
       setResultsData(data || INITIAL_RESULTS)
       setShowPasswordPrompt(false)
       setPendingFile(null)
+      setPreUploadPassword('')
+      setStatementPassword('')
       cleanupAnimation()
       switchState('results')
     } catch (err) {
       console.error('Analysis error:', err)
       cleanupAnimation()
-      if (useSample || err.message?.includes('fetch') || err.message?.includes('Failed')) {
+      // Network failures → show demo data gracefully
+      if (useSample || err.message?.includes('fetch') || err.message?.toLowerCase().includes('failed to fetch') || err.message?.includes('NetworkError')) {
         await new Promise((r) => setTimeout(r, 1200))
         setResultsData(INITIAL_RESULTS)
         switchState('results')
@@ -570,28 +600,28 @@ export default function App() {
 
   const handleFileSelect = (e) => {
     const file = e.target.files?.[0]
-    if (file) {
-      setPendingFile(file)
-      setStatementPassword('')
-      setPasswordError(null)
-      setShowPasswordPrompt(false)
-      performAnalysis(file, false, '')
-    }
+    if (!file) return
+    // Reset the input so the same file can be re-selected after a password error
+    e.target.value = ''
+    setPendingFile(file)
+    setPasswordError(null)
+    setShowPasswordPrompt(false)
+    // Pass the pre-upload password the user may have typed before selecting the file
+    performAnalysis(file, false, preUploadPassword || null)
   }
 
   const handleDrop = (e) => {
     e.preventDefault()
     setIsDragOver(false)
     const file = e.dataTransfer.files?.[0]
-    if (file) {
-      setPendingFile(file)
-      setStatementPassword('')
-      setPasswordError(null)
-      setShowPasswordPrompt(false)
-      performAnalysis(file, false, '')
-    }
+    if (!file) return
+    setPendingFile(file)
+    setPasswordError(null)
+    setShowPasswordPrompt(false)
+    performAnalysis(file, false, preUploadPassword || null)
   }
 
+  // Called from the password modal — re-submits the already-selected file with the new password
   const handleUnlockAndAnalyze = (e) => {
     e?.preventDefault()
     if (pendingFile) {
@@ -983,6 +1013,46 @@ export default function App() {
                   </div>
                 )}
 
+                {/* Optional pre-upload password — avoids the upload→fail→modal loop for protected PDFs */}
+                <div className="rounded-2xl border border-[#2B303B] bg-[#12151C]/80 p-4 space-y-3">
+                  <button
+                    type="button"
+                    onClick={() => setShowInlinePasswordInput((v) => !v)}
+                    className="flex items-center gap-2 text-xs font-mono text-[#8A93A3] hover:text-[#D99A4E] transition-colors w-full text-left"
+                  >
+                    <span className="material-symbols-outlined text-[16px]">key</span>
+                    <span>Password-protected PDF?</span>
+                    <span className="ml-auto text-[#2B303B] text-lg leading-none">{showInlinePasswordInput ? '−' : '+'}</span>
+                  </button>
+                  {showInlinePasswordInput && (
+                    <div className="space-y-2 animate-in fade-in slide-in-from-top-1">
+                      <p className="text-[11px] text-[#8A93A3] leading-relaxed">
+                        Enter your PDF password here <span className="text-[#6FA88C] font-semibold">before selecting the file</span> — your bank statement will unlock and analyze instantly without any extra steps.
+                      </p>
+                      <div className="relative">
+                        <input
+                          type={preUploadPasswordVisible ? 'text' : 'password'}
+                          value={preUploadPassword}
+                          onChange={(e) => setPreUploadPassword(e.target.value)}
+                          placeholder="e.g. DDMMYYYY or PAN card..."
+                          className="w-full px-4 py-2.5 rounded-xl bg-[#0E1117] border border-[#2B303B] focus:border-[#D99A4E] text-xs font-mono text-[#ECEEF3] placeholder:text-[#8A93A3]/50 outline-none transition-all pr-10"
+                        />
+                        <button
+                          type="button"
+                          onClick={() => setPreUploadPasswordVisible((v) => !v)}
+                          className="absolute right-3 top-1/2 -translate-y-1/2 text-[#8A93A3] hover:text-[#ECEEF3] transition-colors"
+                        >
+                          <span className="material-symbols-outlined text-[15px]">{preUploadPasswordVisible ? 'visibility_off' : 'visibility'}</span>
+                        </button>
+                      </div>
+                      <div className="flex flex-wrap gap-2 text-[10px] font-mono text-[#8A93A3]">
+                        <span className="px-2 py-1 rounded-lg bg-[#181C25] border border-[#2B303B]">HDFC / SBI / ICICI → DOB (DDMMYYYY)</span>
+                        <span className="px-2 py-1 rounded-lg bg-[#181C25] border border-[#2B303B]">Axis / Kotak → Name+DOB or PAN</span>
+                      </div>
+                    </div>
+                  )}
+                </div>
+
                 {/* Interactive Drag & Drop Area */}
                 <div
                   className={`border border-dashed transition-all rounded-3xl p-10 cursor-pointer flex flex-col items-start gap-4 ${
@@ -1003,7 +1073,10 @@ export default function App() {
                       Drop bank statement PDF or CSV here, or <span className="text-[#D99A4E] underline underline-offset-4 font-semibold">browse files</span>
                     </p>
                     <p className="text-xs text-[#8A93A3]">
-                      Encrypted locally in RAM before transmission • Zero files stored on disk
+                      {preUploadPassword
+                        ? <span className="text-[#6FA88C] font-mono">🔑 Password set — select your PDF to unlock &amp; analyze instantly</span>
+                        : 'Encrypted locally in RAM before transmission • Zero files stored on disk'
+                      }
                     </p>
                   </div>
                 </div>
