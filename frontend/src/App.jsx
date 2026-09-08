@@ -492,6 +492,7 @@ export default function App() {
         if (cryptoResult.success) {
           setEncryptionStatus('256-bit Web Crypto encryption active')
           const formData = new FormData()
+          formData.append('is_encrypted', 'true')
           formData.append('encrypted_payload_b64', cryptoResult.encryptedPayloadB64)
           formData.append('nonce_b64', cryptoResult.nonceB64)
           formData.append('key_b64', cryptoResult.keyB64)
