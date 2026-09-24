@@ -122,7 +122,7 @@ export default function PrivacyPolicyPage({ onNavigate }) {
       const elapsed = (performance.now() - t0).toFixed(1)
 
       if (decoded === 'StopTheDrip_Hardware_Security_Check') {
-        setCryptoStatus(`✓ Hardware AES-256-GCM verified (${elapsed}ms latency)`)
+        setCryptoStatus(`✓ In-Browser Web Crypto AES-256-GCM verified (${elapsed}ms latency)`)
       } else {
         setCryptoStatus('Cipher test completed with warnings.')
       }
@@ -280,7 +280,7 @@ export default function PrivacyPolicyPage({ onNavigate }) {
                   title="Runs a 256-bit Web Crypto AES-GCM cipher speed & readiness test on your browser"
                 >
                   <span className="material-symbols-outlined text-[16px] text-[#D99A4E]">enhanced_encryption</span>
-                  <span>Verify Hardware 256-bit AES</span>
+                  <span>Verify Web Crypto 256-bit AES</span>
                 </button>
                 {cryptoStatus && (
                   <p className="text-[11px] text-[#D99A4E] font-mono text-center animate-in fade-in leading-snug bg-[#D99A4E]/10 p-2 rounded-lg border border-[#D99A4E]/20">

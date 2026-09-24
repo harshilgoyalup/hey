@@ -1,7 +1,7 @@
 """
 StopTheDrip FastAPI Backend Server.
-Provides POST /analyze with PDF/CSV parsing, dual-agent AI leak detection,
-real free 256-bit AES-GCM in-memory encryption, and zero data storage.
+Provides POST /analyze with deterministic PDF/CSV parsing, pure code financial calculations,
+256-bit AES-GCM in-memory decryption, and zero data storage.
 """
 
 import asyncio
@@ -12,7 +12,7 @@ import time
 from typing import Optional
 from fastapi import FastAPI, File, Form, HTTPException, UploadFile
 from fastapi.middleware.cors import CORSMiddleware
-from fastapi.responses import JSONResponse, StreamingResponse
+from fastapi.responses import JSONResponse
 import sys
 backend_dir = os.path.dirname(os.path.abspath(__file__))
 if backend_dir not in sys.path:
@@ -59,7 +59,7 @@ async def health_check():
         "encryption": "256-bit AES-GCM active",
         "storage": DATA_STORAGE_MODE,
         "retention_policy_seconds": RETENTION_POLICY_SECONDS,
-        "ai_provider": "google-gemini" if has_gemini else ("anthropic" if has_anthropic else "heuristic-fallback")
+        "ai_guidance_provider": "google-gemini" if has_gemini else ("anthropic" if has_anthropic else "deterministic-fallback")
     }
 
 
@@ -75,8 +75,8 @@ async def get_security_policy():
             "automatic_deletion": True,
             "description": "Uploaded financial statements are parsed strictly in volatile memory and purged immediately post-request."
         },
-        "supported_formats": [".pdf", ".csv", ".xlsx", ".xls", ".txt"],
-        "disclaimer": "This service provides automated transaction analytics and is not a registered financial or legal advisor."
+        "supported_formats": [".pdf", ".csv", ".txt"],
+        "disclaimer": "This service provides automated transaction analytics based on uploaded statements and is not a registered financial advisor."
     }
 
 
@@ -87,16 +87,15 @@ async def analyze_statement_endpoint(
     nonce_b64: Optional[str] = Form(None),
     key_b64: Optional[str] = Form(None),
     encrypted_payload_b64: Optional[str] = Form(None),
-    password: Optional[str] = Form(None),
-    use_sample: Optional[bool] = Form(False)
+    password: Optional[str] = Form(None)
 ):
     """
     Primary analysis endpoint:
-    - Ingests multipart file (PDF or CSV) or AES-256-GCM encrypted payload.
+    - Ingests user multipart file (PDF or CSV) or AES-256-GCM encrypted payload.
     - Operates purely in-memory (RAM) with zero disk persistence.
     - Supports password-protected PDF bank statements via in-memory decryption.
-    - Enforces a minimum ~1.5s delay so the analyzing animation plays smoothly.
-    - Runs dual-agent classification and cancellation guide generation.
+    - Runs 100% deterministic code calculations for recurring charges, frequencies, and costs.
+    - Restricts AI models exclusively to plain-language cancellation guidance.
     """
     start_time = time.time()
 
@@ -104,30 +103,20 @@ async def analyze_statement_endpoint(
         content_bytes: bytes = b""
         filename = "statement.csv"
 
-        # Case 1: Bundled sample requested
-        if use_sample:
-            sample_path = os.path.join(os.path.dirname(__file__), "sample_statement.csv")
-            if os.path.exists(sample_path):
-                with open(sample_path, "rb") as f:
-                    content_bytes = f.read()
-                filename = "sample_statement.csv"
-            else:
-                raise HTTPException(status_code=404, detail="Sample statement not found on server.")
-
-        # Case 2: Encrypted payload via Web Crypto API
-        elif is_encrypted and encrypted_payload_b64 and nonce_b64 and key_b64:
+        # Case 1: Encrypted payload via Web Crypto API
+        if is_encrypted and encrypted_payload_b64 and nonce_b64 and key_b64:
             try:
                 content_bytes = decrypt_payload_b64(encrypted_payload_b64, nonce_b64, key_b64)
                 filename = file.filename if file else "statement.csv"
             except Exception as dec_err:
                 raise HTTPException(status_code=400, detail=f"256-bit AES-GCM Decryption failed: {str(dec_err)}")
 
-        # Case 3: Standard multipart file upload
+        # Case 2: Standard multipart file upload
         elif file is not None:
             filename = file.filename or "statement.csv"
             content_bytes = await file.read()
         else:
-            raise HTTPException(status_code=400, detail="No statement file or payload provided.")
+            raise HTTPException(status_code=400, detail="No statement file or payload provided. Please upload a bank statement.")
 
         if not content_bytes:
             raise HTTPException(status_code=400, detail="Uploaded statement file is empty.")
@@ -143,18 +132,17 @@ async def analyze_statement_endpoint(
         except Exception as parse_err:
             raise HTTPException(status_code=422, detail=f"Unable to parse statement: {str(parse_err)}")
 
-        # Best-effort handling: if no transactions parsed, return graceful empty result
+        # If no transactions parsed, return graceful empty result
         if not transactions:
-            results = create_empty_response()
-            results["message"] = "No transactions found in the uploaded statement. Please check the file format."
+            results = create_empty_response("No transactions found in the uploaded statement. Please check the file format.")
         else:
-            # Run AI pipeline
+            # Run deterministic calculation pipeline
             results = await analyze_transactions(transactions)
 
         # Enforce minimum ~1.5s duration for the scanning animation
         elapsed = time.time() - start_time
-        if elapsed < 1.6:
-            await asyncio.sleep(1.6 - elapsed)
+        if elapsed < 1.5:
+            await asyncio.sleep(1.5 - elapsed)
 
         return JSONResponse(content=results)
 
@@ -162,29 +150,6 @@ async def analyze_statement_endpoint(
         raise
     except Exception as exc:
         raise HTTPException(status_code=500, detail=f"Analysis pipeline error: {str(exc)}")
-
-
-@app.get("/sample")
-async def get_sample_statement():
-    """Provides the bundled 142-transaction sample bank statement."""
-    sample_path = os.path.join(os.path.dirname(__file__), "sample_statement.csv")
-    if not os.path.exists(sample_path):
-        raise HTTPException(status_code=404, detail="Sample file not found.")
-    
-    with open(sample_path, "rb") as f:
-        data = f.read()
-        
-    return StreamingResponse(
-        io.BytesIO(data),
-        media_type="text/csv",
-        headers={"Content-Disposition": "attachment; filename=sample_statement_142.csv"}
-    )
-
-
-@app.post("/analyze/sample")
-async def analyze_sample_direct():
-    """Direct analysis endpoint for the 142-transaction sample statement."""
-    return await analyze_statement_endpoint(use_sample=True)
 
 
 if __name__ == "__main__":

@@ -161,3 +161,4 @@ stop-the-drip/
 
 MIT License. Designed with privacy-first principles.
 
+"# skills" 

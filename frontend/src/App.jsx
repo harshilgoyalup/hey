@@ -7,118 +7,7 @@ import TermsOfServicePage from './components/TermsOfServicePage'
 
 const API_BASE_URL = (import.meta.env.VITE_API_URL || import.meta.env.VITE_API_BASE_URL || '').replace(/\/$/, '')
 
-// Baseline dataset matching the design system
-const INITIAL_RESULTS = {
-  total_leaks_detected: 5,
-  total_annual_leak: 18468,
-  total_monthly_leak: 1539,
-  active_subscriptions_count: 5,
-  forgotten_leaks_count: 2,
-  potential_annual_savings: 12576,
-  audit_health_score: 62,
-  leak_vectors: [
-    {
-      id: 'item-1',
-      friendly_name: 'Cult.fit Pass',
-      merchant: 'Cult.fit Gym & Live',
-      tag: 'Forgotten',
-      confidence: 0.96,
-      subtitle: 'Zero check-ins in 4 months • Medium difficulty',
-      monthly_amount: 999,
-      annual_amount: 11988,
-      description: "Zero partner gym check-ins detected since November. Auto-renews monthly on linked credit card ending in 4092.",
-      note: 'Cancellation takes ~3 mins via mobile app profile settings.',
-      steps: [
-        'Open Cult.fit app, tap Profile > Active Memberships.',
-        'Select Cult Pass Live & Gym > Manage Subscription.',
-        'Tap Pause or Cancel Membership and confirm cancellation.'
-      ],
-      action_type: 'cancel',
-      action_label: 'Cancel subscription'
-    },
-    {
-      id: 'item-2',
-      friendly_name: 'Netflix UHD 4K',
-      merchant: 'Netflix Inc',
-      tag: 'Active',
-      confidence: 0.94,
-      subtitle: 'Streamed 2 days ago • Easy downgrade/cancel',
-      monthly_amount: 649,
-      annual_amount: 7788,
-      description: 'High engagement streaming profile. Consider downgrading to standard HD if 4K multi-screen is unused.',
-      note: 'Instant 1-click downgrade or cancel available anytime.',
-      steps: [
-        'Sign in to Netflix.com on web browser.',
-        'Navigate to Account > Plan Details.',
-        'Select Change Plan or Cancel Membership.'
-      ],
-      action_type: 'manage',
-      action_label: 'Manage plan'
-    },
-    {
-      id: 'item-3',
-      friendly_name: 'Calm Mindset Pro',
-      merchant: 'Calm.com',
-      tag: 'Forgotten',
-      confidence: 0.91,
-      subtitle: 'Zero app sessions logged in 180 days',
-      monthly_amount: 499,
-      annual_amount: 5988,
-      description: 'Pure capital leak. App was launched only once during trial onboarding.',
-      note: 'Low activity detected — cancel to instantly save ₹499/mo.',
-      steps: [
-        'Open Apple Subscriptions or Google Play Subscriptions.',
-        'Locate Calm Pro under Active Subscriptions.',
-        'Tap Cancel Subscription and confirm.'
-      ],
-      action_type: 'cancel',
-      action_label: 'Cancel subscription'
-    },
-    {
-      id: 'item-4',
-      friendly_name: 'iCloud Storage 200GB',
-      merchant: 'Apple Services',
-      tag: 'Active',
-      confidence: 0.89,
-      subtitle: 'Daily photo sync active • Essential utility',
-      monthly_amount: 219,
-      annual_amount: 2628,
-      description: 'Active cloud backup holding 142 GB of family photos and device backups.',
-      note: 'Managed directly via iOS Settings > Apple ID.',
-      steps: [
-        'Open iPhone Settings > tap your Apple ID banner.',
-        'Tap iCloud > Manage Account Storage > Change Storage Plan.'
-      ],
-      action_type: 'manage',
-      action_label: 'Manage plan'
-    },
-    {
-      id: 'item-5',
-      friendly_name: 'Spotify Premium Duo',
-      merchant: 'Spotify AB',
-      tag: 'Active',
-      confidence: 0.88,
-      subtitle: 'Daily music & podcasts streaming',
-      monthly_amount: 119,
-      annual_amount: 1428,
-      description: 'High utilization streaming service with active shared duo member.',
-      note: 'Managed through Spotify web billing portal.',
-      steps: [
-        'Sign in to Spotify.com/account.',
-        'Under Your Plan, click Change Plan or Cancel Premium.'
-      ],
-      action_type: 'manage',
-      action_label: 'Manage plan'
-    }
-  ],
-  spend_by_category: [
-    { name: 'Health & Fitness', monthly_amount: 999, percentage: 40, bar_width_pct: 40 },
-    { name: 'Entertainment & Streaming', monthly_amount: 768, percentage: 31, bar_width_pct: 31 },
-    { name: 'Wellness & Mindset', monthly_amount: 499, percentage: 20, bar_width_pct: 20 },
-    { name: 'Cloud & Utilities', monthly_amount: 219, percentage: 9, bar_width_pct: 9 }
-  ],
-  optimization_callout: 'Cancelling Cult.fit Pass and Calm Mindset immediately recovers ₹1,498 / month (₹17,976 / year) with zero disruption to your daily life.'
-}
+
 
 const SUPPORTED_SERVICES = [
   'HDFC Bank', 'ICICI Bank', 'State Bank of India', 'Axis Bank', 'Kotak Mahindra', 
@@ -313,9 +202,9 @@ export default function App() {
 
   const [currentState, setCurrentState] = useState(getInitialStateFromUrl) // 'upload' | 'analyzing' | 'results' | 'policy' | 'terms'
   const [isMobileNavOpen, setIsMobileNavOpen] = useState(false)
-  const [resultsData, setResultsData] = useState(INITIAL_RESULTS)
-  const [openAccordions, setOpenAccordions] = useState({ 'item-1': true })
-  const [filterTag, setFilterTag] = useState('All') // 'All' | 'Forgotten' | 'Active'
+  const [resultsData, setResultsData] = useState(null)
+  const [openAccordions, setOpenAccordions] = useState({})
+  const [filterTag, setFilterTag] = useState('All') // 'All' | 'High Confidence' | 'Low Confidence'
   const [simulationHorizon, setSimulationHorizon] = useState(1) // 1, 3, 5 years
   const [errorMessage, setErrorMessage] = useState(null)
   const [isDragOver, setIsDragOver] = useState(false)
@@ -343,7 +232,7 @@ export default function App() {
   // Telemetry Progression
   const [analyzingStep, setAnalyzingStep] = useState(1)
   const [loadingTitle, setLoadingTitle] = useState('Initializing in-memory decryption...')
-  const [loadingDesc, setLoadingDesc] = useState('256-bit AES-GCM hardware cipher active')
+  const [loadingDesc, setLoadingDesc] = useState('256-bit AES-GCM in-memory cipher active')
 
   const fileInputRef = useRef(null)
 
@@ -461,14 +350,14 @@ export default function App() {
 
     const t1 = setTimeout(() => {
       setAnalyzingStep(2)
-      setLoadingTitle('Cross-referencing 45,000+ merchant signatures...')
-      setLoadingDesc('Matching recurring cadences, gym passes, and streaming tiers')
+      setLoadingTitle('Matching recurring cadences and merchant patterns...')
+      setLoadingDesc('Identifying repeated debits, intervals, and weekly/monthly cycles')
     }, 900)
 
     const t2 = setTimeout(() => {
       setAnalyzingStep(3)
-      setLoadingTitle('Autonomous Dual-Agent leak evaluation...')
-      setLoadingDesc('Compounding annual savings and generating cancellation steps')
+      setLoadingTitle('Deterministic leak evaluation & cadence analysis...')
+      setLoadingDesc('Computing exact annual costs and generating cancellation guidance')
     }, 1800)
 
     return () => {
@@ -477,7 +366,11 @@ export default function App() {
     }
   }
 
-  const performAnalysis = async (file, useSample = false, pwd = null) => {
+  const performAnalysis = async (file, pwd = null) => {
+    if (!file) {
+      setErrorMessage('Please select a bank statement file (PDF or CSV) to analyze.')
+      return
+    }
     setErrorMessage(null)
     setPasswordError(null)
     // pwd arg takes priority; then modal password; then pre-upload password typed before file select
@@ -486,97 +379,78 @@ export default function App() {
     const startTime = Date.now()
 
     try {
-      let data = null
+      let uploadPayload = null
 
-      if (!useSample && file) {
-        let uploadPayload = null
-
-        // Always try in-browser AES-256-GCM encryption first
-        let cryptoResult = { success: false }
-        try {
-          const fileBuffer = await file.arrayBuffer()
-          cryptoResult = await encryptStatementBuffer(fileBuffer)
-        } catch (_) {
-          // encryption unavailable — fall through to plain upload
-        }
-
-        if (cryptoResult.success) {
-          setEncryptionStatus('256-bit Web Crypto encryption active')
-          const formData = new FormData()
-          formData.append('is_encrypted', 'true')
-          formData.append('encrypted_payload_b64', cryptoResult.encryptedPayloadB64)
-          formData.append('nonce_b64', cryptoResult.nonceB64)
-          formData.append('key_b64', cryptoResult.keyB64)
-          formData.append('filename', file.name)
-          if (activePassword) formData.append('password', activePassword)
-          uploadPayload = formData
-        } else {
-          // Fallback: plain multipart upload
-          setEncryptionStatus('TLS-secured upload')
-          const formData = new FormData()
-          formData.append('file', file)
-          if (activePassword) formData.append('password', activePassword)
-          uploadPayload = formData
-        }
-
-        const endpoint = `${API_BASE_URL}/analyze`
-        const response = await fetch(endpoint, {
-          method: 'POST',
-          body: uploadPayload,
-        })
-
-        if (!response.ok) {
-          const errText = await response.text()
-          if (errText.includes('PASSWORD_REQUIRED') || errText.includes('PASSWORD_INCORRECT')) {
-            const isIncorrect = errText.includes('PASSWORD_INCORRECT')
-            // Keep the file in state so the modal can re-submit without re-picking
-            setPendingFile(file)
-            setStatementPassword('')
-            setPasswordError(
-              isIncorrect
-                ? 'Incorrect password. Most banks use DOB (DDMMYYYY) or PAN / Last 4 digits of debit card.'
-                : 'This PDF is password-protected. Enter the password below to unlock and analyze instantly.'
-            )
-            setShowPasswordPrompt(true)
-            cleanupAnimation()
-            switchState('upload')
-            return
-          }
-          // Surface readable error, strip JSON noise
-          let friendlyErr = `Upload failed (${response.status}).`
-          try {
-            const parsed = JSON.parse(errText)
-            if (parsed?.detail) friendlyErr = parsed.detail
-          } catch (_) {
-            if (errText && errText.length < 300) friendlyErr = errText
-          }
-          throw new Error(friendlyErr)
-        }
-
-        data = await response.json()
-      } else {
-        // Sample mode: hit /analyze with use_sample flag via form
-        const endpoint = `${API_BASE_URL}/analyze`
-        const fd = new FormData()
-        fd.append('use_sample', 'true')
-        const response = await fetch(endpoint, {
-          method: 'POST',
-          body: fd,
-        }).catch(() => null)
-
-        if (response && response.ok) {
-          data = await response.json()
-        } else {
-          data = INITIAL_RESULTS
-        }
+      // Always try in-browser AES-256-GCM encryption first
+      let cryptoResult = { success: false }
+      try {
+        const fileBuffer = await file.arrayBuffer()
+        cryptoResult = await encryptStatementBuffer(fileBuffer)
+      } catch (_) {
+        // encryption unavailable — fall through to plain upload
       }
+
+      if (cryptoResult.success) {
+        setEncryptionStatus('256-bit Web Crypto encryption active')
+        const formData = new FormData()
+        formData.append('is_encrypted', 'true')
+        formData.append('encrypted_payload_b64', cryptoResult.encryptedPayloadB64)
+        formData.append('nonce_b64', cryptoResult.nonceB64)
+        formData.append('key_b64', cryptoResult.keyB64)
+        formData.append('filename', file.name)
+        if (activePassword) formData.append('password', activePassword)
+        uploadPayload = formData
+      } else {
+        // Fallback: plain multipart upload
+        setEncryptionStatus('TLS-secured upload')
+        const formData = new FormData()
+        formData.append('file', file)
+        if (activePassword) formData.append('password', activePassword)
+        uploadPayload = formData
+      }
+
+      const endpoint = `${API_BASE_URL}/analyze`
+      const response = await fetch(endpoint, {
+        method: 'POST',
+        body: uploadPayload,
+      })
+
+      if (!response.ok) {
+        const errText = await response.text()
+        if (errText.includes('PASSWORD_REQUIRED') || errText.includes('PASSWORD_INCORRECT')) {
+          const isIncorrect = errText.includes('PASSWORD_INCORRECT')
+          // Keep the file in state so the modal can re-submit without re-picking
+          setPendingFile(file)
+          setStatementPassword('')
+          setPasswordError(
+            isIncorrect
+              ? 'Incorrect password. Most banks use DOB (DDMMYYYY) or PAN / Last 4 digits of debit card.'
+              : 'This PDF is password-protected. Enter the password below to unlock and analyze instantly.'
+          )
+          setShowPasswordPrompt(true)
+          cleanupAnimation()
+          switchState('upload')
+          return
+        }
+        // Surface readable error, strip JSON noise
+        let friendlyErr = `Upload failed (${response.status}).`
+        try {
+          const parsed = JSON.parse(errText)
+          if (parsed?.detail) friendlyErr = parsed.detail
+        } catch (_) {
+          if (errText && errText.length < 300) friendlyErr = errText
+        }
+        throw new Error(friendlyErr)
+      }
+
+      const data = await response.json()
 
       const elapsed = Date.now() - startTime
-      if (elapsed < 1800) {
-        await new Promise((r) => setTimeout(r, 1800 - elapsed))
+      if (elapsed < 1500) {
+        await new Promise((r) => setTimeout(r, 1500 - elapsed))
       }
 
-      setResultsData(data || INITIAL_RESULTS)
+      setResultsData(data)
       setShowPasswordPrompt(false)
       setPendingFile(null)
       setPreUploadPassword('')
@@ -586,15 +460,8 @@ export default function App() {
     } catch (err) {
       console.error('Analysis error:', err)
       cleanupAnimation()
-      // Network failures → show demo data gracefully
-      if (useSample || err.message?.includes('fetch') || err.message?.toLowerCase().includes('failed to fetch') || err.message?.includes('NetworkError')) {
-        await new Promise((r) => setTimeout(r, 1200))
-        setResultsData(INITIAL_RESULTS)
-        switchState('results')
-      } else {
-        setErrorMessage(err.message || 'Unable to process statement.')
-        switchState('upload')
-      }
+      setErrorMessage(err.message || 'Unable to connect to analysis server. Please check your connection and statement file.')
+      switchState('upload')
     }
   }
 
@@ -607,7 +474,7 @@ export default function App() {
     setPasswordError(null)
     setShowPasswordPrompt(false)
     // Pass the pre-upload password the user may have typed before selecting the file
-    performAnalysis(file, false, preUploadPassword || null)
+    performAnalysis(file, preUploadPassword || null)
   }
 
   const handleDrop = (e) => {
@@ -618,14 +485,14 @@ export default function App() {
     setPendingFile(file)
     setPasswordError(null)
     setShowPasswordPrompt(false)
-    performAnalysis(file, false, preUploadPassword || null)
+    performAnalysis(file, preUploadPassword || null)
   }
 
   // Called from the password modal — re-submits the already-selected file with the new password
   const handleUnlockAndAnalyze = (e) => {
     e?.preventDefault()
     if (pendingFile) {
-      performAnalysis(pendingFile, false, statementPassword)
+      performAnalysis(pendingFile, statementPassword)
     } else {
       fileInputRef.current?.click()
     }
@@ -633,14 +500,14 @@ export default function App() {
 
   const handleExportCSV = () => {
     const rows = [['Merchant', 'Friendly Name', 'Monthly Amount', 'Annual Cost', 'Confidence', 'Status']]
-    resultsData.leak_vectors?.forEach((v) => {
+    resultsData?.leak_vectors?.forEach((v) => {
       rows.push([
         `"${v.merchant || ''}"`,
         `"${v.friendly_name || ''}"`,
         v.monthly_amount,
         v.annual_amount,
-        v.confidence || 0.9,
-        `"${v.tag || ''}"`,
+        v.confidence_level || 'high',
+        `"${v.tag || 'Detected recurring'}"`,
       ])
     })
     const csvContent = 'data:text/csv;charset=utf-8,' + rows.map((e) => e.join(',')).join('\n')
@@ -653,9 +520,10 @@ export default function App() {
     document.body.removeChild(link)
   }
 
-  const filteredLeaks = (resultsData.leak_vectors || []).filter((item) => {
+  const filteredLeaks = (resultsData?.leak_vectors || []).filter((item) => {
     if (filterTag === 'All') return true
-    return item.tag === filterTag
+    if (filterTag === 'High Confidence') return item.confidence_level === 'high'
+    if (filterTag === 'Low Confidence') return item.confidence_level === 'low'
   })
 
   return (
@@ -710,7 +578,7 @@ export default function App() {
               onClick={() => switchState('results')}
               className={`hover:text-[#ECEEF3] transition-colors ${currentState === 'results' ? 'text-[#D99A4E] font-semibold' : ''}`}
             >
-              Leak Vectors ({resultsData.leak_vectors?.length || 5})
+              Leak Vectors ({resultsData?.leak_vectors?.length || 0})
             </button>
             <button
               onClick={() => switchState('policy')}
@@ -840,7 +708,7 @@ export default function App() {
                 currentState === 'results' ? 'bg-[#D99A4E]/20 text-[#D99A4E] font-semibold' : 'text-[#8A93A3]'
               }`}
             >
-              <span>Leak Vectors ({resultsData.leak_vectors?.length || 5})</span>
+              <span>Leak Vectors ({resultsData?.leak_vectors?.length || 0})</span>
               <span className="material-symbols-outlined text-[16px]">analytics</span>
             </button>
             <button
@@ -931,35 +799,44 @@ export default function App() {
                     Every month, something <span className="italic text-[#D99A4E] font-headline">drips out</span> unnoticed.
                   </h1>
                   <p className="text-base text-[#8A93A3] leading-relaxed max-w-xl font-normal">
-                    Upload your bank statement. StopTheDrip isolates forgotten subscriptions, hidden price hikes, and dormant recurring charges — with zero disk storage and in-browser 256-bit AES-GCM encryption.
+                    Upload your bank statement. StopTheDrip isolates recurring subscriptions and silent leaks — with zero disk storage and in-browser 256-bit AES-GCM encryption.
                   </p>
 
-                  {/* Compounding Live KPIs */}
-                  <div className="grid grid-cols-3 gap-6 pt-4 border-t border-[#2B303B]/80">
-                    <div>
-                      <div className="font-headline text-3xl md:text-4xl text-[#D99A4E] font-normal">
-                        ₹{(resultsData.total_monthly_leak || 1539).toLocaleString()}
+                  {/* Compounding Live KPIs: Only calculated from user statement */}
+                  <div className="pt-4 border-t border-[#2B303B]/80">
+                    {resultsData && resultsData.status === 'success' && resultsData.total_leaks_detected > 0 ? (
+                      <div className="grid grid-cols-3 gap-6">
+                        <div>
+                          <div className="font-headline text-3xl md:text-4xl text-[#D99A4E] font-normal">
+                            ₹{(resultsData.total_monthly_leak || 0).toLocaleString()}
+                          </div>
+                          <div className="text-[11px] font-mono text-[#8A93A3] mt-1 uppercase tracking-wider">
+                            monthly leak
+                          </div>
+                        </div>
+                        <div>
+                          <div className="font-headline text-3xl md:text-4xl text-[#ECEEF3] font-normal">
+                            ₹{(resultsData.total_annual_leak || 0).toLocaleString()}
+                          </div>
+                          <div className="text-[11px] font-mono text-[#8A93A3] mt-1 uppercase tracking-wider">
+                            1-yr loss
+                          </div>
+                        </div>
+                        <div>
+                          <div className="font-headline text-3xl md:text-4xl text-[#6FA88C] font-normal">
+                            ₹{(resultsData.potential_annual_savings || 0).toLocaleString()}
+                          </div>
+                          <div className="text-[11px] font-mono text-[#8A93A3] mt-1 uppercase tracking-wider">
+                            reclaimable
+                          </div>
+                        </div>
                       </div>
-                      <div className="text-[11px] font-mono text-[#8A93A3] mt-1 uppercase tracking-wider">
-                        monthly leak
+                    ) : (
+                      <div className="flex items-center gap-3 py-3 text-xs font-mono text-[#8A93A3]">
+                        <span className="w-2 h-2 rounded-full bg-[#D99A4E] animate-pulse"></span>
+                        <span>Upload a statement to see your results • All calculations computed from your file</span>
                       </div>
-                    </div>
-                    <div>
-                      <div className="font-headline text-3xl md:text-4xl text-[#ECEEF3] font-normal">
-                        ₹{(resultsData.total_annual_leak || 18468).toLocaleString()}
-                      </div>
-                      <div className="text-[11px] font-mono text-[#8A93A3] mt-1 uppercase tracking-wider">
-                        1-yr loss
-                      </div>
-                    </div>
-                    <div>
-                      <div className="font-headline text-3xl md:text-4xl text-[#6FA88C] font-normal">
-                        ₹{(resultsData.potential_annual_savings || 12576).toLocaleString()}
-                      </div>
-                      <div className="text-[11px] font-mono text-[#8A93A3] mt-1 uppercase tracking-wider">
-                        reclaimable
-                      </div>
-                    </div>
+                    )}
                   </div>
                 </div>
 
@@ -1081,16 +958,6 @@ export default function App() {
                   </div>
                 </div>
 
-                {/* Instant Sample Button */}
-                <div className="flex flex-wrap items-center gap-4 pt-1">
-                  <button
-                    className="shimmer-btn px-7 py-3.5 rounded-2xl text-[#12151C] text-sm font-semibold flex items-center gap-2.5 shadow-xl active:scale-95"
-                    onClick={() => performAnalysis(null, true)}
-                  >
-                    <span className="material-symbols-outlined text-[18px]">bolt</span>
-                    Try Live Sample Audit (142 Transactions)
-                  </button>
-                </div>
 
                 {/* Quick Security Status Badges */}
                 <div className="flex flex-wrap items-center gap-6 text-xs text-[#8A93A3] pt-4 border-t border-[#2B303B]">
@@ -1154,27 +1021,27 @@ export default function App() {
                       <span>Get Instant Audit &amp; Savings</span>
                     </div>
                     <p className="text-xs text-[#8A93A3] pl-7 leading-relaxed">
-                      Our neural engine isolates leaks against 45,000+ signatures and generates immediate cancellation playbooks.
+                      Our deterministic engine isolates recurring debits and cadences, and generates actionable cancellation guidance.
                     </p>
                   </div>
                 </div>
               </div>
             </div>
 
-            {/* 4 BANK-GRADE ENCRYPTION PILLARS */}
+            {/* 4 256-BIT ENCRYPTION PILLARS */}
             <div className="space-y-6 pt-6 border-t border-[#2B303B] reveal-on-scroll">
               <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2">
                 <div>
                   <h2 className="font-headline text-2xl font-normal text-[#ECEEF3]">
-                    Bank-Grade Encryption &amp; Privacy Suite
+                    256-Bit AES Encryption &amp; Privacy Suite
                   </h2>
                   <p className="text-xs text-[#8A93A3]">
-                    Why uploading your bank statement to StopTheDrip is 100% confidential and mathematically safe.
+                    Client-side encrypted in browser memory with zero disk storage on the backend.
                   </p>
                 </div>
                 <div className="inline-flex items-center gap-1.5 px-3.5 py-1 bg-[#181C25] border border-[#2B303B] rounded-full text-xs text-[#6FA88C] font-mono self-start sm:self-auto">
                   <span className="material-symbols-outlined text-[15px]">verified_user</span>
-                  <span>zero-storage certified</span>
+                  <span>zero-disk memory only</span>
                 </div>
               </div>
 
@@ -1273,7 +1140,27 @@ export default function App() {
         {/* ========================================================= */}
         {/* STATE 3: RESULTS AUDIT LEDGER */}
         {/* ========================================================= */}
-        {currentState === 'results' && (
+        {currentState === 'results' && !resultsData && (
+          <section className="min-h-[55vh] flex flex-col items-center justify-center text-center space-y-6 animate-in fade-in">
+            <div className="w-16 h-16 rounded-2xl bg-[#181C25] border border-[#2B303B] flex items-center justify-center text-[#D99A4E] shadow-lg">
+              <span className="material-symbols-outlined text-[32px]">upload_file</span>
+            </div>
+            <div className="space-y-2 max-w-md">
+              <h2 className="text-2xl font-headline text-[#ECEEF3]">Upload a statement to see your results</h2>
+              <p className="text-xs text-[#8A93A3] leading-relaxed">
+                No statement has been uploaded yet. Upload your PDF or CSV bank statement on the audit page to calculate recurring charges and leaks deterministically from your own data.
+              </p>
+            </div>
+            <button
+              onClick={() => switchState('upload')}
+              className="px-6 py-3 rounded-xl bg-[#D99A4E] text-[#12151C] text-xs font-semibold hover:bg-[#D99A4E]/90 transition-all shadow-xl active:scale-95"
+            >
+              Go to Statement Audit
+            </button>
+          </section>
+        )}
+
+        {currentState === 'results' && resultsData && (
           <section className="space-y-12 animate-in fade-in duration-500">
             {/* AUDIT SUMMARY HERO BANNER */}
             <div className="glass-panel rounded-3xl p-8 md:p-12 space-y-8 shadow-2xl gradient-border-glow reveal-on-scroll is-visible">
@@ -1281,11 +1168,14 @@ export default function App() {
                 <div>
                   <div className="flex items-center gap-2 text-xs font-mono text-[#6FA88C]">
                     <span className="w-2 h-2 rounded-full bg-[#6FA88C] animate-pulse"></span>
-                    <span>Audit Complete • {resultsData.leak_vectors?.length || 5} Leaks Identified</span>
+                    <span>Audit Complete • {resultsData.total_leaks_detected || 0} Recurring Subscriptions Detected</span>
                   </div>
                   <h1 className="text-3xl md:text-5xl font-headline font-normal text-[#ECEEF3] mt-2">
-                    Autonomous Leak Ledger
+                    Deterministic Leak Ledger
                   </h1>
+                  <p className="text-xs text-[#8A93A3] mt-1 font-mono">
+                    Estimates based on your uploaded statement, not financial advice.
+                  </p>
                 </div>
                 <button
                   onClick={() => switchState('upload')}
@@ -1300,25 +1190,25 @@ export default function App() {
                 <div className="p-6 rounded-2xl bg-[#181C25]/80 border border-[#2B303B] space-y-2">
                   <div className="text-xs font-mono text-[#8A93A3] uppercase">Monthly Leak Rate</div>
                   <div className="text-3xl md:text-4xl font-headline text-[#D99A4E]">
-                    ₹{(resultsData.total_monthly_leak || 1539).toLocaleString()} <span className="text-sm font-sans text-[#8A93A3]">/mo</span>
+                    ₹{(resultsData.total_monthly_leak || 0).toLocaleString()} <span className="text-sm font-sans text-[#8A93A3]">/mo</span>
                   </div>
-                  <p className="text-xs text-[#8A93A3]">Unclaimed subscription recurring charges</p>
+                  <p className="text-xs text-[#8A93A3]">Identified recurring subscription charges</p>
                 </div>
 
                 <div className="p-6 rounded-2xl bg-[#181C25]/80 border border-[#2B303B] space-y-2">
-                  <div className="text-xs font-mono text-[#8A93A3] uppercase">Annual Compound Loss</div>
+                  <div className="text-xs font-mono text-[#8A93A3] uppercase">Annual Recurring Cost</div>
                   <div className="text-3xl md:text-4xl font-headline text-[#ECEEF3]">
-                    ₹{(resultsData.total_annual_leak || 18468).toLocaleString()} <span className="text-sm font-sans text-[#8A93A3]">/yr</span>
+                    ₹{(resultsData.total_annual_leak || 0).toLocaleString()} <span className="text-sm font-sans text-[#8A93A3]">/yr</span>
                   </div>
-                  <p className="text-xs text-[#8A93A3]">Projected financial drag over 12 months</p>
+                  <p className="text-xs text-[#8A93A3]">Total annual recurring cost across detected items</p>
                 </div>
 
                 <div className="p-6 rounded-2xl bg-[#181C25]/80 border border-[#2B303B] space-y-2">
-                  <div className="text-xs font-mono text-[#8A93A3] uppercase">Instant Recovery Savings</div>
+                  <div className="text-xs font-mono text-[#8A93A3] uppercase">Potential Annual Savings</div>
                   <div className="text-3xl md:text-4xl font-headline text-[#6FA88C]">
-                    ₹{(resultsData.potential_annual_savings || 12576).toLocaleString()} <span className="text-sm font-sans text-[#8A93A3]">/yr</span>
+                    ₹{(resultsData.potential_annual_savings || 0).toLocaleString()} <span className="text-sm font-sans text-[#8A93A3]">/yr</span>
                   </div>
-                  <p className="text-xs text-[#8A93A3]">Recoverable with zero loss in daily productivity</p>
+                  <p className="text-xs text-[#8A93A3]">Recoverable upon cancelling detected subscriptions</p>
                 </div>
               </div>
 
@@ -1349,15 +1239,15 @@ export default function App() {
 
                 <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 pt-2">
                   <div className="p-4 rounded-xl bg-[#181C25] border border-[#FF6B6B]/30 space-y-1">
-                    <span className="text-[11px] font-mono text-[#FF6B6B] uppercase">Cumulative Money Lost if Untouched</span>
+                    <span className="text-[11px] font-mono text-[#FF6B6B] uppercase">Cumulative Money Paid if Kept</span>
                     <div className="text-2xl font-headline text-[#ECEEF3]">
-                      ₹{((resultsData.total_annual_leak || 18468) * simulationHorizon).toLocaleString()}
+                      ₹{((resultsData.total_annual_leak || 0) * simulationHorizon).toLocaleString()}
                     </div>
                   </div>
                   <div className="p-4 rounded-xl bg-[#181C25] border border-[#6FA88C]/30 space-y-1">
                     <span className="text-[11px] font-mono text-[#6FA88C] uppercase">Compounded Wealth Saved &amp; Re-invested</span>
                     <div className="text-2xl font-headline text-[#6FA88C]">
-                      ₹{Math.round((resultsData.potential_annual_savings || 12576) * simulationHorizon * (1 + 0.08 * simulationHorizon)).toLocaleString()}
+                      ₹{Math.round((resultsData.potential_annual_savings || 0) * simulationHorizon * (1 + 0.08 * simulationHorizon)).toLocaleString()}
                       <span className="text-xs font-sans text-[#8A93A3] ml-1.5 font-normal">(@8% return)</span>
                     </div>
                   </div>
@@ -1371,12 +1261,12 @@ export default function App() {
               <div className="lg:col-span-7 space-y-4">
                 <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 pb-2 border-b border-[#2B303B]">
                   <h3 className="font-headline text-xl font-normal text-[#ECEEF3]">
-                    Detected Leak Vectors
+                    Detected Recurring Payments ({filteredLeaks.length})
                   </h3>
 
                   {/* Filter Pills */}
                   <div className="flex items-center gap-1.5">
-                    {['All', 'Forgotten', 'Active'].map((tag) => (
+                    {['All', 'High Confidence', 'Low Confidence'].map((tag) => (
                       <button
                         key={tag}
                         onClick={() => setFilterTag(tag)}
@@ -1393,89 +1283,98 @@ export default function App() {
                 </div>
 
                 <div className="space-y-3">
-                  {filteredLeaks.map((item) => {
-                    const isOpen = Boolean(openAccordions[item.id])
-                    return (
-                      <div
-                        key={item.id}
-                        className={`glass-panel rounded-2xl transition-all overflow-hidden ${
-                          isOpen ? 'border-[#D99A4E]/60 shadow-xl' : 'hover:border-[#2B303B]'
-                        }`}
-                      >
-                        <button
-                          onClick={() => toggleAccordion(item.id)}
-                          className="w-full text-left p-5 flex items-center justify-between gap-4 cursor-pointer"
+                  {filteredLeaks.length === 0 ? (
+                    <div className="p-8 rounded-2xl bg-[#181C25] border border-[#2B303B] text-center space-y-3">
+                      <span className="material-symbols-outlined text-4xl text-[#6FA88C]">check_circle</span>
+                      <h4 className="text-lg font-headline text-[#ECEEF3]">No recurring payments detected</h4>
+                      <p className="text-xs text-[#8A93A3] max-w-md mx-auto leading-relaxed">
+                        {resultsData.total_transactions_parsed > 0
+                          ? `Analyzed ${resultsData.total_transactions_parsed} transactions (${resultsData.credits_ignored_count || 0} credits ignored, ${resultsData.uncertain_rows_excluded || 0} uncertain rows excluded). No repeated debits matching regular cadences were found.`
+                          : 'No recurring payment patterns were detected across your uploaded statement.'}
+                      </p>
+                      <p className="text-[11px] font-mono text-[#8A93A3]">
+                        Estimates based on your uploaded statement, not financial advice.
+                      </p>
+                    </div>
+                  ) : (
+                    filteredLeaks.map((item) => {
+                      const isOpen = Boolean(openAccordions[item.id])
+                      return (
+                        <div
+                          key={item.id}
+                          className={`glass-panel rounded-2xl transition-all overflow-hidden ${
+                            isOpen ? 'border-[#D99A4E]/60 shadow-xl' : 'hover:border-[#2B303B]'
+                          }`}
                         >
-                          <div className="space-y-1">
-                            <div className="flex items-center gap-2.5">
-                              <span className="font-headline text-lg text-[#ECEEF3] font-normal">
-                                {item.friendly_name || item.merchant}
-                              </span>
+                          <button
+                            onClick={() => toggleAccordion(item.id)}
+                            className="w-full text-left p-5 flex items-center justify-between gap-4 cursor-pointer"
+                          >
+                            <div className="space-y-1">
+                              <div className="flex items-center gap-2.5 flex-wrap">
+                                <span className="font-headline text-lg text-[#ECEEF3] font-normal">
+                                  {item.friendly_name || item.merchant}
+                                </span>
+                                <span className="text-[10px] font-mono px-2 py-0.5 rounded-full border bg-[#D99A4E]/10 text-[#D99A4E] border-[#D99A4E]/30">
+                                  Detected recurring
+                                </span>
+                                <span className="text-[10px] font-mono px-2 py-0.5 rounded-full border bg-[#6FA88C]/10 text-[#6FA88C] border-[#6FA88C]/30">
+                                  {item.confidence_level === 'high' ? 'High confidence (3+ charges)' : 'Low confidence (2 charges)'}
+                                </span>
+                              </div>
+                              <p className="text-xs text-[#8A93A3]">
+                                {item.subtitle || `Last charged ${item.last_charged_date || 'recently'} • ${item.frequency}`}
+                              </p>
+                            </div>
+
+                            <div className="flex items-center gap-4 text-right">
+                              <div>
+                                <div className="text-sm font-semibold text-[#D99A4E] font-mono">
+                                  ₹{(item.monthly_amount || 0).toLocaleString()} /mo
+                                </div>
+                                <div className="text-[11px] text-[#8A93A3] font-mono">
+                                  ₹{(item.annual_amount || 0).toLocaleString()} /yr
+                                </div>
+                              </div>
                               <span
-                                className={`text-[10px] font-mono px-2 py-0.5 rounded-full border ${
-                                  item.tag === 'Forgotten'
-                                    ? 'bg-[#D99A4E]/10 text-[#D99A4E] border-[#D99A4E]/30'
-                                    : 'bg-[#6FA88C]/10 text-[#6FA88C] border-[#6FA88C]/30'
+                                className={`text-[#8A93A3] text-lg transition-transform duration-200 ${
+                                  isOpen ? 'rotate-45 text-[#D99A4E]' : ''
                                 }`}
                               >
-                                {item.tag || 'Active'}
+                                +
                               </span>
                             </div>
-                            <p className="text-xs text-[#8A93A3]">
-                              {item.subtitle || `Recurring subscription • ${Math.round((item.confidence || 0.9) * 100)}% confidence`}
-                            </p>
-                          </div>
+                          </button>
 
-                          <div className="flex items-center gap-4 text-right">
-                            <div>
-                              <div className="text-sm font-semibold text-[#D99A4E] font-mono">
-                                ₹{(item.monthly_amount || 0).toLocaleString()} /mo
-                              </div>
-                              <div className="text-[11px] text-[#8A93A3] font-mono">
-                                ₹{(item.annual_amount || item.monthly_amount * 12 || 0).toLocaleString()} /yr
+                          {/* Expandable Step-by-Step Guidance */}
+                          {isOpen && (
+                            <div className="px-5 pb-5 pt-1 border-t border-[#2B303B]/60 space-y-4 text-xs animate-in fade-in">
+                              <p className="text-[#8A93A3] leading-relaxed">
+                                {item.description}
+                              </p>
+
+                              {(item.cancellation_steps || item.steps || []).length > 0 && (
+                                <div className="space-y-2 bg-[#181C25]/80 p-4 rounded-xl border border-[#2B303B]">
+                                  <span className="font-mono text-[#D99A4E] text-[11px] uppercase tracking-wider block">
+                                    Cancellation Guidance:
+                                  </span>
+                                  <ol className="space-y-1.5 list-decimal list-inside text-[#ECEEF3]">
+                                    {(item.cancellation_steps || item.steps).map((s, idx) => (
+                                      <li key={idx} className="leading-relaxed">{s}</li>
+                                    ))}
+                                  </ol>
+                                </div>
+                              )}
+
+                              <div className="text-[11px] font-mono text-[#8A93A3] pt-2 border-t border-[#2B303B]/40">
+                                Estimates based on your uploaded statement, not financial advice.
                               </div>
                             </div>
-                            <span
-                              className={`text-[#8A93A3] text-lg transition-transform duration-200 ${
-                                isOpen ? 'rotate-45 text-[#D99A4E]' : ''
-                              }`}
-                            >
-                              +
-                            </span>
-                          </div>
-                        </button>
-
-                        {/* Expandable Step-by-Step Playbook */}
-                        {isOpen && (
-                          <div className="px-5 pb-5 pt-1 border-t border-[#2B303B]/60 space-y-4 text-xs animate-in fade-in">
-                            <p className="text-[#8A93A3] leading-relaxed">
-                              {item.description}
-                            </p>
-
-                            {item.steps && item.steps.length > 0 && (
-                              <div className="space-y-2 bg-[#181C25]/80 p-4 rounded-xl border border-[#2B303B]">
-                                <span className="font-mono text-[#D99A4E] text-[11px] uppercase tracking-wider block">
-                                  1-Click Cancellation Pathway:
-                                </span>
-                                <ol className="space-y-1.5 list-decimal list-inside text-[#ECEEF3]">
-                                  {item.steps.map((s, idx) => (
-                                    <li key={idx} className="leading-relaxed">{s}</li>
-                                  ))}
-                                </ol>
-                              </div>
-                            )}
-
-                            {item.note && (
-                              <div className="flex items-center gap-2 text-[11px] text-[#6FA88C] font-mono">
-                                <span className="material-symbols-outlined text-[16px]">info</span>
-                                <span>{item.note}</span>
-                              </div>
-                            )}
-                          </div>
-                        )}
-                      </div>
-                    )
-                  })}
+                          )}
+                        </div>
+                      )
+                    })
+                  )}
                 </div>
               </div>
 
@@ -1490,22 +1389,26 @@ export default function App() {
 
                   {/* Spend Bars */}
                   <div className="space-y-4">
-                    {resultsData.spend_by_category?.map((cat, idx) => (
-                      <div key={idx} className="space-y-1.5">
-                        <div className="flex justify-between text-xs">
-                          <span className="text-[#ECEEF3] font-medium">{cat.name}</span>
-                          <span className="text-[#8A93A3] font-mono">
-                            ₹{(cat.monthly_amount || 0).toLocaleString()} /mo ({cat.percentage}%)
-                          </span>
+                    {resultsData.spend_by_category && resultsData.spend_by_category.length > 0 ? (
+                      resultsData.spend_by_category.map((cat, idx) => (
+                        <div key={idx} className="space-y-1.5">
+                          <div className="flex justify-between text-xs">
+                            <span className="text-[#ECEEF3] font-medium">{cat.name}</span>
+                            <span className="text-[#8A93A3] font-mono">
+                              ₹{(cat.monthly_amount || 0).toLocaleString()} /mo ({cat.percentage}%)
+                            </span>
+                          </div>
+                          <div className="w-full h-2 rounded-full bg-[#12151C] overflow-hidden border border-[#2B303B]">
+                            <div
+                              className="bg-[#6FA88C] h-full rounded-full transition-all duration-700"
+                              style={{ width: `${cat.bar_width_pct || cat.percentage}%` }}
+                            ></div>
+                          </div>
                         </div>
-                        <div className="w-full h-2 rounded-full bg-[#12151C] overflow-hidden border border-[#2B303B]">
-                          <div
-                            className="bg-[#6FA88C] h-full rounded-full transition-all duration-700"
-                            style={{ width: `${cat.bar_width_pct || cat.percentage}%` }}
-                          ></div>
-                        </div>
-                      </div>
-                    ))}
+                      ))
+                    ) : (
+                      <p className="text-xs text-[#8A93A3]">No category spending data available.</p>
+                    )}
                   </div>
 
                   {resultsData.optimization_callout && (
@@ -1521,7 +1424,7 @@ export default function App() {
                       Export Audit Dossier
                     </h4>
                     <p className="text-xs text-[#8A93A3]">
-                      Download a clean CSV summary or print an encrypted report.
+                      Download a clean CSV summary of your detected recurring payments.
                     </p>
                     <div className="grid grid-cols-2 gap-3 pt-1">
                       <button
